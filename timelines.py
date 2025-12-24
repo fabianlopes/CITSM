@@ -5,14 +5,13 @@ from datetime import datetime
 
 def renderizar_timelines(df_servico):
     """
-    Renderiza Timeline de Fluxo e Aging (Backlog).
+    Renderiza Timeline de Fluxo e Aging (Backlog) com filtro inteligente (Vazio = Todos).
     """
     st.divider()
 
     # --- 1. Fluxo (Linha do Tempo) ---
     st.subheader("📈 Ritmo de Trabalho")
 
-    # Seletor local de frequência
     freq = st.radio("Agrupar por:", ["Semanal", "Mensal"], horizontal=True, key="freq_time")
     regra = 'W-MON' if freq == "Semanal" else 'MS'
 
@@ -38,29 +37,56 @@ def renderizar_timelines(df_servico):
     st.subheader("🐢 Tickets Pendentes Antigos (Top 15)")
     st.caption("Visualização de chamados abertos há mais tempo.")
 
-    # Filtra o que não tem data de fim
+    # 1. Filtra apenas o que está aberto (sem data fim)
     df_abertos = df_servico[df_servico['DTFIM'].isna()].copy()
 
     if not df_abertos.empty:
-        agora = datetime.now()
-        df_abertos['DIAS_ABERTO'] = (agora - df_abertos['DTABERTURA']).dt.days
+        lista_status = df_abertos['STATUS'].unique()
 
-        # Pega os 15 piores
-        df_top = df_abertos.sort_values('DIAS_ABERTO', ascending=False).head(15)
-
-        # Cria rótulo para o eixo Y
-        df_top['ROTULO'] = df_top['DEMANDANTE'] + " (" + df_top['DIAS_ABERTO'].astype(str) + "d)"
-
-        fig_gantt = px.timeline(
-            df_top,
-            x_start="DTABERTURA",
-            x_end=[agora] * len(df_top),
-            y="ROTULO",
-            color="STATUS",
-            title="Duração dos chamados em aberto"
+        # Filtro Multiselect
+        status_selecionados = st.multiselect(
+            "Filtrar Status na Timeline:",
+            options=lista_status,
+            default=lista_status,
+            placeholder="Selecione os status (Deixe vazio para ver TODOS)", # Dica visual
+            key="filtro_status_timeline"
         )
-        fig_gantt.update_yaxes(autorange="reversed", title="") # Inverte para o mais velho ficar no topo
-        fig_gantt.update_layout(height=max(len(df_top)*30, 300)) # Altura dinâmica
-        st.plotly_chart(fig_gantt, use_container_width=True)
+
+        # --- LÓGICA INTELIGENTE (AQUI MUDOU) ---
+        if status_selecionados:
+            # Se tem algo selecionado, filtra
+            df_abertos = df_abertos[df_abertos['STATUS'].isin(status_selecionados)]
+            titulo_grafico = f"Top 15 mais antigos ({len(status_selecionados)} status selecionados)"
+        else:
+            # Se NÃO tem nada selecionado, NÃO faz nada (mantém todos)
+            # E avisa o usuário discretamente
+            st.caption("ℹ️ Nenhum filtro específico selecionado. Exibindo **todos** os status pendentes.")
+            titulo_grafico = "Top 15 mais antigos (Geral)"
+
+        # 2. Processamento do Gráfico
+        if not df_abertos.empty:
+            agora = datetime.now()
+            df_abertos['DIAS_ABERTO'] = (agora - df_abertos['DTABERTURA']).dt.days
+
+            # Pega os 15 piores DO CONJUNTO ATUAL
+            df_top = df_abertos.sort_values('DIAS_ABERTO', ascending=False).head(15)
+
+            # Cria rótulo
+            df_top['ROTULO'] = df_top['DEMANDANTE'] + " (" + df_top['DIAS_ABERTO'].astype(str) + "d)"
+
+            fig_gantt = px.timeline(
+                df_top,
+                x_start="DTABERTURA",
+                x_end=[agora] * len(df_top),
+                y="ROTULO",
+                color="STATUS",
+                title=titulo_grafico
+            )
+            fig_gantt.update_yaxes(autorange="reversed", title="")
+            fig_gantt.update_layout(height=max(len(df_top)*35, 300))
+
+            st.plotly_chart(fig_gantt, use_container_width=True)
+        else:
+            st.info("Nenhum ticket encontrado com os status selecionados.")
     else:
-        st.success("Nenhum ticket pendente!")
+        st.success("Nenhum ticket pendente neste serviço!")

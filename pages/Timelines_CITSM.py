@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import conexao
-import Timelines_CITSM # Importa o módulo de lógica temporal
+import timelines
 import timelines
 
 st.set_page_config(page_title="Timelines", layout="wide")
