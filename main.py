@@ -23,13 +23,13 @@ with mainContainer:
     col1, col2, col3 = st.columns(3, gap="large")
 
     with col1:
-        st.image("static/dash-op.jpg")
+        st.image("assets/dash-op.jpg")
         st.link_button("Dash. Operacional", "www.google.com", type="secondary")
 
     with col2:
-        st.image("static/dash-ia.jpg")
+        st.image("assets/dash-ia.jpg")
         st.link_button("Dash. de IA", "www.google.com", type="secondary")
     
     with col3:
-        st.image("static/dash-resumo.jpg")
+        st.image("assets/dash-resumo.jpg")
         st.link_button("Dash. de Resumo", "www.google.com", type="secondary") 
