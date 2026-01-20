@@ -4,22 +4,31 @@ import conexao
 import torch
 import re
 import nltk
+import gc
 from bertopic import BERTopic
 from sklearn.feature_extraction.text import CountVectorizer
 from nltk.corpus import stopwords
 
-# --- CONFIGURAÇÃO INICIAL ---
-st.set_page_config(page_title="IA GPU - BERTopic Limpo", layout="wide")
-st.title("🚀 Análise de Tópicos (Limpeza Avançada + GPU)")
+# --- 1. CONFIGURAÇÃO INICIAL E ESTADO DA SESSÃO ---
+st.set_page_config(page_title="IA GPU - CITSM Analyzer", layout="wide")
 
-# Verifica GPU
+# Inicializa o estado para evitar loops infinitos
+if "analise_concluida" not in st.session_state:
+    st.session_state.analise_concluida = False
+    st.session_state.info_topicos = None
+    st.session_state.fig_bar = None
+    st.session_state.df_resultados = None
+
+st.title("🚀 Análise de Tópicos (Modo Turbo GPU)")
+
+# Verifica hardware
 device = "cuda" if torch.cuda.is_available() else "cpu"
 if device == "cuda":
-    st.success(f"✅ GPU ATIVADA: {torch.cuda.get_device_name(0)} - Modo Turbo")
+    st.success(f"✅ GPU ATIVADA: {torch.cuda.get_device_name(0)}")
 else:
-    st.warning("⚠️ GPU não detectada. Rodando em CPU (pode demorar).")
+    st.warning("⚠️ Rodando em CPU.")
 
-# --- 0. PREPARAÇÃO DE STOPWORDS (O FILTRO) ---
+# --- 2. CACHE DE RECURSOS (STOPWORDS E MODELO) ---
 @st.cache_resource
 def preparar_stopwords():
     try:
@@ -27,154 +36,127 @@ def preparar_stopwords():
     except LookupError:
         nltk.download('stopwords')
 
-    lista_pt = stopwords.words('portuguese')
-
-    # AQUI ESTÁ O SEGREDO: Adicionamos o "lixo" específico do seu negócio
+    lista = stopwords.words('portuguese')
     lixo_helpdesk = [
-        # Assinaturas e Locais
         'manaus', 'amazonas', 'am', 'br', 'gov', 'com', 'org', 'http', 'https', 'www',
         'atenciosamente', 'grato', 'obrigado', 'bom', 'dia', 'tarde', 'noite',
         'semef', 'prefeitura', 'secretaria', 'assunto', 'encaminhado', 'mensagem',
-        # Palavras vazias de chamado
         'chamado', 'ticket', 'solicitacao', 'solicito', 'favor', 'gentileza',
         'analise', 'verificar', 'analisar', 'tratar', 'conforme', 'segue', 'anexo',
         'sistema', 'erro', 'falha', 'problema', 'abertura', 'fechamento',
-        # Lixo técnico
-        'json', 'html', 'div', 'span', 'class', 'id', 'width', 'height', 'style',
-        'null', 'undefined', 'true', 'false', 'date', 'time'
+        'json', 'html', 'div', 'span', 'class', 'id', 'width', 'height', 'style'
     ]
-    lista_pt.extend(lixo_helpdesk)
-    return lista_pt
+    lista.extend(lixo_helpdesk)
+    return lista
+
+@st.cache_resource
+def carregar_modelo_base(stop_words):
+    # O vectorizer é o que remove as stopwords na saída dos tópicos
+    vectorizer_model = CountVectorizer(stop_words=stop_words, min_df=5)
+    return BERTopic(
+        language="multilingual",
+        vectorizer_model=vectorizer_model,
+        verbose=True,
+        calculate_probabilities=False, # Crucial para não travar o navegador
+        min_topic_size=10
+    )
 
 stop_words_pt = preparar_stopwords()
 
-# --- 1. FUNÇÃO DE LIMPEZA DE TEXTO (REGEX) ---
+# --- 3. FUNÇÕES DE APOIO ---
 def limpar_texto(texto):
     if not isinstance(texto, str): return ""
-
-    # 1. Converte para minúsculas
     texto = texto.lower()
-
-    # 2. Remove E-mails (ex: fulano@manaus.am.gov.br)
-    texto = re.sub(r'\S+@\S+', '', texto)
-
-    # 3. Remove URLs (http://...)
-    texto = re.sub(r'http\S+|www\S+', '', texto)
-
-    # 4. Remove Números e Anos (Remove 2024, 2025, 123)
-    texto = re.sub(r'\d+', '', texto)
-
-    # 5. Remove Pontuação e Caracteres Especiais (Mantém apenas letras e espaços)
-    texto = re.sub(r'[^\w\s]', ' ', texto)
-
-    # 6. Remove espaços extras
+    texto = re.sub(r'\S+@\S+', '', texto) # E-mails
+    texto = re.sub(r'http\S+|www\S+', '', texto) # URLs
+    texto = re.sub(r'\d+', '', texto) # Números
+    texto = re.sub(r'[^\w\s]', ' ', texto) # Pontuação
     texto = re.sub(r'\s+', ' ', texto).strip()
-
     return texto
 
-# --- CARGA DE DADOS ---
 @st.cache_data(ttl=3600)
 def carregar_dados():
-    conn = conexao.conexao()
-    # Traz 5000 linhas
-    return pd.read_sql("SELECT * FROM ODS_ITSM FETCH FIRST 5000 ROWS ONLY", conn)
+    try:
+        conn = conexao.conexao()
+        return pd.read_sql("SELECT * FROM ODS_ITSM FETCH FIRST 5000 ROWS ONLY", conn)
+    except Exception as e:
+        st.error(f"Erro na conexão: {e}")
+        return pd.DataFrame()
 
+# --- 4. CARGA E BARRA LATERAL ---
 df = carregar_dados()
 if df.empty: st.stop()
 
-# --- BARRA LATERAL ---
-st.sidebar.header("Configuração")
+st.sidebar.header("⚙️ Configurações")
+lista_servicos = df['NOMESERVICO'].unique()
+idx_serv = next((i for i, s in enumerate(lista_servicos) if "Sustenta" in str(s)), 0)
+servico_sel = st.sidebar.selectbox("1. Selecione o Serviço:", lista_servicos, index=idx_serv)
 
-if 'NOMESERVICO' in df.columns:
-    lista_servicos = df['NOMESERVICO'].unique()
-    idx_serv = next((i for i, s in enumerate(lista_servicos) if "Sustenta" in str(s)), 0)
-    servico_sel = st.sidebar.selectbox("1. Serviço:", lista_servicos, index=idx_serv)
-    df_analise = df[df['NOMESERVICO'] == servico_sel].copy()
-else:
-    st.error("Coluna NOMESERVICO não encontrada.")
-    st.stop()
+df_analise = df[df['NOMESERVICO'] == servico_sel].copy()
 
-# Seleção de Coluna Inteligente
 cols_disponiveis = df_analise.columns.tolist()
 idx_desc = next((i for i, c in enumerate(cols_disponiveis) if any(x in c.upper() for x in ['DESC', 'TEXT', 'RESUMO'])), 0)
-coluna_texto = st.sidebar.selectbox("2. Coluna de Texto:", cols_disponiveis, index=idx_desc)
+coluna_texto = st.sidebar.selectbox("2. Coluna para IA:", cols_disponiveis, index=idx_desc)
 
-# --- PRÉ-PROCESSAMENTO ---
-if st.button("🚀 Iniciar Análise Limpa (GPU)", type="primary"):
-
-    # 1. Aplica a limpeza pesada
-    with st.spinner("🧹 Limpando sujeira (Emails, HTML, Datas, Assinaturas)..."):
-        # Remove nulos e converte para string
+# --- 5. BOTÃO DE EXECUÇÃO ---
+if st.button("🚀 Iniciar Processamento na GPU", type="primary"):
+    with st.spinner("🧹 Limpando dados e preparando GPU..."):
         df_analise = df_analise.dropna(subset=[coluna_texto])
         df_analise['TEXTO_LIMPO'] = df_analise[coluna_texto].astype(str).apply(limpar_texto)
-
-        # Filtra textos que ficaram vazios ou muito curtos após a limpeza
         df_analise = df_analise[df_analise['TEXTO_LIMPO'].str.len() > 10]
 
-    if len(df_analise) < 10:
-        st.warning("Após a limpeza, sobraram poucos dados. Tente outro serviço.")
+    if len(df_analise) < 15:
+        st.warning("Dados insuficientes para criar tópicos.")
     else:
-        with st.spinner(f"🧠 A RTX 3060 está processando {len(df_analise)} tickets..."):
-            try:
-                # --- CONFIGURAÇÃO DO BERTOPIC ---
-                # Usamos CountVectorizer para forçar o BERTopic a ignorar as stopwords
-                # min_df=5: A palavra precisa aparecer em pelo menos 5 tickets para ser relevante
-                vectorizer_model = CountVectorizer(stop_words=stop_words_pt, min_df=5)
-
-                # Instancia o modelo com o vectorizer customizado
-                topic_model = BERTopic(
-                    language="multilingual",
-                    vectorizer_model=vectorizer_model, # <--- AQUI ESTÁ A MÁGICA
-                    verbose=True,
-                    calculate_probabilities=False,
-                    min_topic_size=10 # Tópicos precisam ter no mínimo 10 tickets
-                )
-
-                # Treina
+        try:
+            with st.spinner(f"🧠 A IA está analisando {len(df_analise)} tickets..."):
+                # Carrega modelo e executa
+                model = carregar_modelo_base(stop_words_pt)
                 docs = df_analise['TEXTO_LIMPO'].tolist()
-                topics, probs = topic_model.fit_transform(docs)
+                topics, _ = model.fit_transform(docs)
 
-                # Resultados
-                info_topicos = topic_model.get_topic_info()
+                # Salva no Session State para persistência
+                st.session_state.info_topicos = model.get_topic_info()
+                st.session_state.fig_bar = model.visualize_barchart(top_n_topics=8, n_words=5)
 
-                # --- VISUALIZAÇÃO ---
-                col1, col2 = st.columns([0.4, 0.6])
-
-                with col1:
-                    st.subheader("📌 Tópicos Limpos")
-                    # Remove coluna 'Representative_Docs' e o Tópico -1 (Ruído) se quiser
-                    display = info_topicos.drop(columns=['Representative_Docs'], errors='ignore')
-
-                    # Renomeia o tópico -1 para "Outros/Ruído"
-                    display.loc[display['Topic'] == -1, 'Name'] = "-1_outros_ruido_diverso"
-
-                    st.dataframe(display.head(20), hide_index=True, use_container_width=True)
-
-                with col2:
-                    st.subheader("📊 Palavras-Chave por Tópico")
-                    fig_bar = topic_model.visualize_barchart(top_n_topics=8, n_words=5)
-                    st.plotly_chart(fig_bar, use_container_width=True)
-
-                st.divider()
-                st.subheader("🕵️ Ver Tickets Reais do Tópico")
-
-                # Cria um selectbox para escolher o tópico
-                opcoes_topicos = info_topicos['Name'].tolist()
-                topico_selecionado = st.selectbox("Escolha um tópico para auditar:", options=opcoes_topicos)
-
-                # Pega o ID do tópico (o número antes do _)
-                id_topico = int(topico_selecionado.split("_")[0])
-
-                # Filtra o dataframe original (mas mostra o texto limpo para conferência)
-                # Precisamos reassociar os tópicos ao DF. O BERTopic retorna na ordem.
+                # Reassocia os tópicos ao dataframe
                 df_analise['TOPICO_ID'] = topics
+                st.session_state.df_resultados = df_analise
+                st.session_state.analise_concluida = True
 
-                tickets_do_topico = df_analise[df_analise['TOPICO_ID'] == id_topico]
+                # Limpeza de memória GPU
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
-                st.dataframe(
-                    tickets_do_topico[['DEMANDANTE', coluna_texto, 'TEXTO_LIMPO']].head(50),
-                    use_container_width=True
-                )
+        except Exception as e:
+            st.error(f"Falha no processamento: {e}")
 
-            except Exception as e:
-                st.error(f"Erro: {e}")
+# --- 6. RENDERIZAÇÃO DOS RESULTADOS (FORA DO BOTÃO) ---
+if st.session_state.analise_concluida:
+    st.divider()
+    col1, col2 = st.columns([0.4, 0.6])
+
+    with col1:
+        st.subheader("📌 Tópicos Identificados")
+        info = st.session_state.info_topicos.drop(columns=['Representative_Docs'], errors='ignore')
+        info.loc[info['Topic'] == -1, 'Name'] = "-1_outros_ruido"
+        st.dataframe(info.head(15), hide_index=True, width="stretch")
+
+    with col2:
+        st.subheader("📊 Relevância de Termos")
+        st.plotly_chart(st.session_state.fig_bar, width="stretch", theme="streamlit")
+
+    st.divider()
+    st.subheader("🕵️ Auditoria de Chamados")
+
+    nomes_topicos = st.session_state.info_topicos['Name'].tolist()
+    sel_topico = st.selectbox("Selecione um tópico para ver os tickets:", options=nomes_topicos)
+    id_sel = int(sel_topico.split("_")[0])
+
+    # Filtra e exibe os tickets reais
+    view_df = st.session_state.df_resultados[st.session_state.df_resultados['TOPICO_ID'] == id_sel]
+    st.dataframe(
+        view_df[['DEMANDANTE', coluna_texto, 'TEXTO_LIMPO']].head(50),
+        width="stretch"
+    )
