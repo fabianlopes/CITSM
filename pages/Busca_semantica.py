@@ -28,11 +28,25 @@ if df.empty: st.stop()
 
 # --- 2. PREPARAÇÃO NA BARRA LATERAL ---
 st.sidebar.header("Configuração")
+COLUNAS_PARA_PESQUISA = ['RESUMO_TICKET', 'DESCRICAO']
+# Filtra: Só mostra no seletor as colunas que EXISTEM no banco E estão na sua lista
+cols_disponiveis = [col for col in df.columns if col in COLUNAS_PARA_PESQUISA]
 
+if not cols_disponiveis:
+    st.error(f"❌ Nenhuma das colunas configuradas foi encontrada no banco.")
+    st.write(f"Sua lista: {COLUNAS_PARA_PESQUISA}")
+    st.write(f"Colunas do Banco: {df.columns.tolist()}")
+    st.stop()
+
+# O Seletor mostra apenas as 3 (ou as que encontrar)
+col_texto = st.sidebar.selectbox(
+    "Onde você quer pesquisar?",
+    cols_disponiveis
+)
 # Seleção de Coluna Automática
-cols = df.columns.tolist()
-idx_desc = next((i for i, c in enumerate(cols) if any(x in c.upper() for x in ['DESC', 'TEXT', 'RESUMO'])), 0)
-col_texto = st.sidebar.selectbox("Coluna para analisar:", cols, index=idx_desc)
+#cols = df.columns.tolist()
+#idx_desc = next((i for i, c in enumerate(cols) if any(x in c.upper() for x in ['DESC', 'TEXT', 'RESUMO'])), 0)
+#col_texto = st.sidebar.selectbox("Coluna para analisar:", cols, index=idx_desc)
 
 # Limpeza Básica (importante remover vazios)
 df = df.dropna(subset=[col_texto])
@@ -105,7 +119,8 @@ if query:
             resultados.append({
                 "Similaridade (%)": f"{score*100:.1f}%",
                 "Demandante": row.get('DEMANDANTE', '-'),
-                "Texto Original": row[col_texto]
+                "Texto Original": row[col_texto],
+                "SubTicket": row['TICKET_SUBTICKET']
             })
 
     if resultados:
