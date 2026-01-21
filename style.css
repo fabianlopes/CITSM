@@ -1,7 +1,7 @@
 /* A sidebar não é exibida na tela inicial */
-/* [data-testid="stSidebar"] {
+[data-testid="stSidebar"] {
     display: none;
-} */
+}
 
 /* Centraliza todos os elementos da página */
 [data-testid="stVerticalBlock"] {
