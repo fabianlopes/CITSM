@@ -16,6 +16,12 @@
 }
 
 /* Botão iniciar destacado */
-[data-testid="stLinkButton"] {
-    margin-top: 50px;
+[data-testid="stPageLink-NavLink"] {
+    background-color: rgb(5, 73, 161);
+    padding: 4px;
+    margin-top: 20px;
+}
+
+[data-testid="stPageLink-NavLink"]:hover {
+    background-color: rgb(4, 58, 129);
 }
