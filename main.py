@@ -15,4 +15,4 @@ logoImg = st.image("assets/logo_pmm.png")
 st.title("Dashboard CITSM", text_alignment="center")
 
 # Botão Iniciar
-st.link_button("Acessar Dashboard", "http://localhost:8501/Dashboard_CITSM.py")
+st.page_link("pages/Dashboard_CITSM.py", label="Acessar Dashboard")
