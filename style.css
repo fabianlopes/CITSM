@@ -1,35 +1,21 @@
-/* .st-key-AIBtn > .stButton {
-    background-color: aqua;
-}
-
-.st-key-AIBtn {
-    background-color: aqua;
+/* A sidebar não é exibida na tela inicial */
+/* [data-testid="stSidebar"] {
+    display: none;
 } */
 
-.st-key-stTooltipHoverTarget {
-    display: none;
-}
-
-.stImage {
-    width: 450px;
-}
-
-.img-container {
-    height: 150px;          /* fixed height */
-    width: 100%;            /* full column width */
-    overflow: hidden;       /* hide overflow */
+/* Centraliza todos os elementos da página */
+[data-testid="stVerticalBlock"] {
     display: flex;
-    justify-content: center;
     align-items: center;
-}
-.img-container img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;      /* crop instead of resize */
+    justify-content: center;
 }
 
-[data-testid="stImage"] img {
-        height: 180px !important;
-        width: 500px !important;
-        object-fit: cover;
-    }
+/* Define o tamanho máximo da img como 200px */
+[data-testid="stImage"] {
+    max-width: 200px !important;
+}
+
+/* Botão iniciar destacado */
+[data-testid="stLinkButton"] {
+    margin-top: 50px;
+}

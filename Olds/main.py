@@ -1,0 +1,40 @@
+# Versão da página inicial com botões grandes para os itens
+
+import streamlit as st
+import conexao
+
+# Aplicando css na página
+def apply_custom_css(css_file):
+    with open(css_file) as f:
+        css = f.read()
+        st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+
+apply_custom_css("style.css")
+
+logoContainer = st.container()
+
+with logoContainer:
+    st.image("assets/logo_pmm.png")
+
+# Título da página
+st.title("Dashboard CITSM", text_alignment="center")
+
+# Criando o menu principal com os itens
+mainContainer = st.container()
+
+with mainContainer:
+    st.markdown('<div class="mainContainer"></div>', unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3, gap="large")
+
+    with col1:
+        st.image("assets/dash-op.jpg")
+        st.link_button("Dash. Operacional", "/")
+
+    with col2:
+        st.image("assets/dash-ia.jpg")
+        st.link_button("Dash. de IA", "www.google.com")
+    
+    with col3:
+        st.image("assets/dash-resumo.jpg")
+        st.link_button("Dash. de Resumo", "www.google.com") 
