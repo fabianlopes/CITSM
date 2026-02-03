@@ -18,10 +18,17 @@
 /* Botão iniciar destacado */
 [data-testid="stPageLink-NavLink"] {
     background-color: rgb(5, 73, 161);
-    padding: 4px;
+    padding: 5px 15px;
     margin-top: 20px;
+    transition: .1s ease-in-out;
 }
 
 [data-testid="stPageLink-NavLink"]:hover {
     background-color: rgb(4, 58, 129);
+    transform: scale(1.05);
+}
+
+[data-testid="stPageLink-NavLink"]:active {
+    background-color: rgb(3, 47, 105);
+    transform: scale(1.00);
 }
