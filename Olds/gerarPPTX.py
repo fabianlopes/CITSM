@@ -54,17 +54,41 @@ criar_slide_conteudo(
     ]
 )
 
-# --- SLIDE 4: TECNOLOGIAS ---
-criar_slide_conteudo(
-    "3. Stack Tecnológico",
-    [
-        "Linguagem: Python 3.11 + Streamlit (Frontend)",
-        "Motor de IA: PyTorch + Sentence-Transformers",
-        "Modelo: intfloat/multilingual-e5-large (Embeddings)",
-        "Banco de Dados: Integração direta com Oracle (ODS_ITSM)",
-        "Hardware: Aceleração via CUDA (NVIDIA GPU Computing)"
-    ]
-)
+# --- SLIDE 4: TECNOLOGIAS (DETALHADO) ---
+# Vamos criar um slide com mais tópicos para caber tudo
+slide_layout = prs.slide_layouts[1]
+slide = prs.slides.add_slide(slide_layout)
+title = slide.shapes.title
+title.text = "3. Arquitetura Técnica & Stack"
+
+# Vamos usar uma fonte menor para caber a lista completa
+tf = slide.placeholders[1].text_frame
+tf.clear() # Limpa o padrão
+
+# Função para adicionar linhas
+def add_line(texto, nivel=0):
+    p = tf.add_paragraph()
+    p.text = texto
+    p.level = nivel
+    p.font.size = Pt(20 if nivel == 0 else 16) # Tamanho da fonte ajustado
+
+# Conteúdo Organizado por Camadas
+add_line("Frontend & Visualização (Abas do Sistema):")
+add_line("Streamlit: Framework de Web App Interativo.", 1)
+add_line("Plotly: Renderização de gráficos dinâmicos e timelines.", 1)
+add_line("Pandas: Manipulação de Dataframes em memória (ETL).", 1)
+
+add_line("Núcleo de Inteligência Artificial (Backend):")
+add_line("PyTorch + CUDA: Computação paralela na GPU (RTX 3060).", 1)
+add_line("Sentence-Transformers: Gerenciamento de Embeddings (Modelo E5-Large).", 1)
+add_line("BERTopic: Modelagem de tópicos e clusterização.", 1)
+
+add_line("Processamento de Linguagem Natural (NLP):")
+add_line("Scikit-Learn: Vetorização (CountVectorizer) e métricas.", 1)
+add_line("NLTK: Tratamento de Stopwords e limpeza de texto em Português.", 1)
+
+add_line("Infraestrutura de Dados:")
+add_line("Oracle Database: Fonte da verdade (ODS_ITSM).", 1)
 
 # --- SLIDE 5: RESULTADOS ---
 criar_slide_conteudo(
