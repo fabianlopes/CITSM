@@ -81,8 +81,8 @@ def carregar_dados():
     try:
         conn = conexao.conexao()
         return pd.read_sql("SELECT * FROM ODS_ITSM FETCH FIRST 5000 ROWS ONLY", conn)
-    except Exception as e:
-        st.error(f"Erro na conexão: {e}")
+    except Exception as erro_conn:
+        st.error(f"Erro na conexão: {erro_conn}")
         return pd.DataFrame()
 
 # --- 4. CARGA E BARRA LATERAL ---
